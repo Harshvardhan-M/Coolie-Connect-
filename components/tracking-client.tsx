@@ -106,35 +106,40 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
     return 10
   }, [etaFromUrl, saved?.eta])
 
-  // Start ~0.5 km away from pickup, bearing fixed to 225deg (SW) for stability
+  // Start closer to pickup (0.2km instead of 0.5km) and use a more realistic bearing
   const startFrom = useMemo<LatLng | null>(() => {
     if (!pickup) return null
-    return offsetFromPoint(pickup, 0.5, 225)
+    return offsetFromPoint(pickup, 0.2, 135) // Southeast direction
   }, [pickup])
 
   const distanceToPickupKm = useMemo(
     () => (startFrom && pickup ? haversine(startFrom, pickup) : 0),
     [startFrom, pickup],
   )
-  const approachDurationSec = useMemo(() => Math.max(30, Math.round(distanceToPickupKm * 300)), [distanceToPickupKm])
+  const approachDurationSec = useMemo(() => Math.max(20, Math.round(distanceToPickupKm * 200)), [distanceToPickupKm])
 
   // Animation progress (0..1) and ETA seconds
   const [t, setT] = useState(0)
   const [etaSec, setEtaSec] = useState(Math.max(initialEtaMin * 60, approachDurationSec))
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Map center at midpoint of start and pickup
   const [center, setCenter] = useState<[number, number]>(() => {
-    const c =
-      startFrom && pickup ? [(startFrom.lat + pickup.lat) / 2, (startFrom.lng + pickup.lng) / 2] : [28.6139, 77.209] // Delhi fallback
-    return c as [number, number]
+    if (pickup && dropoff) {
+      return [(pickup.lat + dropoff.lat) / 2, (pickup.lng + dropoff.lng) / 2] as [number, number]
+    }
+    if (pickup) {
+      return [pickup.lat, pickup.lng] as [number, number]
+    }
+    return [28.6139, 77.209] as [number, number] // Delhi fallback
   })
 
   useEffect(() => {
-    if (startFrom && pickup) {
-      setCenter([(startFrom.lat + pickup.lat) / 2, (startFrom.lng + pickup.lng) / 2] as [number, number])
+    if (pickup && dropoff) {
+      setCenter([(pickup.lat + dropoff.lat) / 2, (pickup.lng + dropoff.lng) / 2] as [number, number])
+    } else if (pickup) {
+      setCenter([pickup.lat, pickup.lng] as [number, number])
     }
-  }, [startFrom, pickup])
+  }, [pickup, dropoff])
 
   // Single stable interval for movement
   useEffect(() => {

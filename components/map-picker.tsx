@@ -1,6 +1,5 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
 
 type LatLng = { lat: number; lng: number }
 
@@ -226,15 +225,6 @@ export default function MapPicker({
 }) {
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup")
 
-  const handleQuickLocation = (lat: number, lng: number) => {
-    const point = { lat, lng }
-    if (mode === "pickup") {
-      onPickupChange(point)
-    } else {
-      onDropoffChange(point)
-    }
-  }
-
   return (
     <div className="relative h-full w-full">
       {/* Mode selector */}
@@ -257,40 +247,6 @@ export default function MapPicker({
         >
           Set Drop-off
         </button>
-      </div>
-
-      {/* Quick locations */}
-      <div className="absolute top-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-        <h3 className="font-medium text-sm mb-2">Quick Locations</h3>
-        <div className="grid grid-cols-1 gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="text-xs h-7 bg-transparent"
-            onClick={() => handleQuickLocation(19.076, 72.8777)}
-          >
-            Mumbai Central
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="text-xs h-7 bg-transparent"
-            onClick={() => handleQuickLocation(28.6139, 77.209)}
-          >
-            Delhi Station
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="text-xs h-7 bg-transparent"
-            onClick={() => handleQuickLocation(13.0827, 80.2707)}
-          >
-            Chennai Central
-          </Button>
-        </div>
       </div>
 
       {/* Interactive map */}
