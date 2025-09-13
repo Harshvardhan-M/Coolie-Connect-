@@ -51,6 +51,9 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
   const dx = typeof searchParams?.dx === "string" ? searchParams.dx : undefined
   const dy = typeof searchParams?.dy === "string" ? searchParams.dy : undefined
 
+  const pickupLabel = typeof searchParams?.pt === "string" ? searchParams.pt : "Pickup Location"
+  const dropoffLabel = typeof searchParams?.dt === "string" ? searchParams.dt : "Drop-off Location"
+
   // URL-provided name/eta (may be missing in production)
   const nameFromUrl = (typeof searchParams?.name === "string" && searchParams.name) || null
   const etaFromUrl = (typeof searchParams?.eta === "string" && searchParams.eta) || null
@@ -106,17 +109,16 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
     return 10
   }, [etaFromUrl, saved?.eta])
 
-  // Start closer to pickup (0.2km instead of 0.5km) and use a more realistic bearing
   const startFrom = useMemo<LatLng | null>(() => {
     if (!pickup) return null
-    return offsetFromPoint(pickup, 0.2, 135) // Southeast direction
+    return offsetFromPoint(pickup, 1.0, 135) // 1km Southeast direction
   }, [pickup])
 
   const distanceToPickupKm = useMemo(
     () => (startFrom && pickup ? haversine(startFrom, pickup) : 0),
     [startFrom, pickup],
   )
-  const approachDurationSec = useMemo(() => Math.max(20, Math.round(distanceToPickupKm * 200)), [distanceToPickupKm])
+  const approachDurationSec = useMemo(() => Math.max(60, Math.round(distanceToPickupKm * 60)), [distanceToPickupKm])
 
   // Animation progress (0..1) and ETA seconds
   const [t, setT] = useState(0)
@@ -192,11 +194,39 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
         </Badge>
       </div>
 
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <div>
+              <p className="text-sm font-medium">Pickup Location</p>
+              <p className="text-xs text-muted-foreground">{pickupLabel}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <div>
+              <p className="text-sm font-medium">Drop-off Location</p>
+              <p className="text-xs text-muted-foreground">{dropoffLabel}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <Card className="p-4 md:col-span-2">
           <div className="h-[420px] rounded-md overflow-hidden border">
             {isMounted && pickup && currentPos ? (
-              <TrackingMap center={center} pickup={pickup} dropoff={dropoff ?? null} currentPos={currentPos} />
+              <TrackingMap
+                center={center}
+                pickup={pickup}
+                dropoff={dropoff ?? null}
+                currentPos={currentPos}
+                pickupLabel={pickupLabel}
+                dropoffLabel={dropoffLabel}
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
                 <div>Missing tracking coordinates.</div>

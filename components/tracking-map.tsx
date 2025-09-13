@@ -9,11 +9,15 @@ export default function TrackingMap({
   pickup,
   dropoff,
   currentPos,
+  pickupLabel,
+  dropoffLabel,
 }: {
   center: [number, number]
   pickup: LatLng
   dropoff?: LatLng | null
   currentPos: LatLng
+  pickupLabel?: string
+  dropoffLabel?: string
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const leafletMapRef = useRef<any>(null)
@@ -96,7 +100,7 @@ export default function TrackingMap({
 
     pickupMarkerRef.current = L.marker([pickup.lat, pickup.lng], { icon: pickupIcon })
       .addTo(leafletMapRef.current)
-      .bindPopup("Pickup Location")
+      .bindPopup(`<strong>Pickup Location</strong><br/>${pickupLabel || "Selected on map"}`)
 
     // Dropoff marker (if exists)
     if (dropoff) {
@@ -111,7 +115,7 @@ export default function TrackingMap({
 
       dropoffMarkerRef.current = L.marker([dropoff.lat, dropoff.lng], { icon: dropoffIcon })
         .addTo(leafletMapRef.current)
-        .bindPopup("Drop-off Location")
+        .bindPopup(`<strong>Drop-off Location</strong><br/>${dropoffLabel || "Selected on map"}`)
     }
 
     // Coolie marker with pulsing animation
@@ -160,7 +164,7 @@ export default function TrackingMap({
 
     const group = L.featureGroup(allMarkers)
     leafletMapRef.current.fitBounds(group.getBounds().pad(0.1))
-  }, [pickup, dropoff, currentPos, isLoaded])
+  }, [pickup, dropoff, currentPos, isLoaded, pickupLabel, dropoffLabel])
 
   if (!isLoaded) {
     return (
