@@ -79,11 +79,14 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
     if (px && py) {
       const lat = Number(py)
       const lng = Number(px)
+      console.log("[v0] Parsing pickup coordinates:", { px, py, lat, lng })
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { lat, lng }
     }
     if (saved?.py != null && saved?.px != null) {
+      console.log("[v0] Using saved pickup coordinates:", { px: saved.px, py: saved.py })
       return { lat: saved.py, lng: saved.px }
     }
+    console.log("[v0] No pickup coordinates found")
     return null
   }, [px, py, saved])
 
@@ -91,11 +94,14 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
     if (dx && dy) {
       const lat = Number(dy)
       const lng = Number(dx)
+      console.log("[v0] Parsing dropoff coordinates:", { dx, dy, lat, lng })
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { lat, lng }
     }
     if (saved?.dy != null && saved?.dx != null) {
+      console.log("[v0] Using saved dropoff coordinates:", { dx: saved.dx, dy: saved.dy })
       return { lat: saved.dy, lng: saved.dx }
     }
+    console.log("[v0] No dropoff coordinates found")
     return null
   }, [dx, dy, saved])
 
@@ -181,6 +187,13 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
 
   const mins = Math.floor(etaSec / 60)
   const secs = etaSec % 60
+
+  console.log("[v0] TrackingClient searchParams:", searchParams)
+
+  console.log("[v0] Extracted coordinates:", { px, py, dx, dy })
+  console.log("[v0] Extracted labels:", { pickupLabel, dropoffLabel })
+
+  console.log("[v0] Final computed coordinates:", { pickup, dropoff })
 
   return (
     <main className="container mx-auto px-4 py-6">
