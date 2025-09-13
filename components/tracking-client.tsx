@@ -1,14 +1,13 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { useMemo, useEffect, useRef, useState } from "react"
-import type { LatLngExpression } from "leaflet"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Clock, MapPin, Phone, XCircle } from "lucide-react"
 import type { SavedBooking } from "@/components/booking-storage"
+import TrackingMap from "./tracking-map"
 
 type LatLng = { lat: number; lng: number }
 type SearchParams = { [key: string]: string | string[] | undefined }
@@ -125,15 +124,15 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Map center at midpoint of start and pickup
-  const [center, setCenter] = useState<LatLngExpression>(() => {
+  const [center, setCenter] = useState<[number, number]>(() => {
     const c =
       startFrom && pickup ? [(startFrom.lat + pickup.lat) / 2, (startFrom.lng + pickup.lng) / 2] : [28.6139, 77.209] // Delhi fallback
-    return c as LatLngExpression
+    return c as [number, number]
   })
 
   useEffect(() => {
     if (startFrom && pickup) {
-      setCenter([(startFrom.lat + pickup.lat) / 2, (startFrom.lng + pickup.lng) / 2] as LatLngExpression)
+      setCenter([(startFrom.lat + pickup.lat) / 2, (startFrom.lng + pickup.lng) / 2] as [number, number])
     }
   }, [startFrom, pickup])
 
@@ -167,7 +166,11 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
     return { lat, lng }
   }, [startFrom, pickup, t])
 
-  const TrackingMap = useMemo(() => dynamic(() => import("./tracking-map").then((m) => m.default), { ssr: false }), [])
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const mins = Math.floor(etaSec / 60)
   const secs = etaSec % 60
@@ -187,7 +190,7 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <Card className="p-4 md:col-span-2">
           <div className="h-[420px] rounded-md overflow-hidden border">
-            {pickup && currentPos ? (
+            {isMounted && pickup && currentPos ? (
               <TrackingMap center={center} pickup={pickup} dropoff={dropoff ?? null} currentPos={currentPos} />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground text-sm">

@@ -1,9 +1,14 @@
+"use client"
+
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Star, Users, MapPin, Clock } from "lucide-react"
+import { Star, Users, MapPin, Clock, Phone, MessageCircle } from "lucide-react"
 import BookingStorage from "@/components/booking-storage"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
 function pickNames(count: number) {
   const pool = [
@@ -35,27 +40,25 @@ function pickNames(count: number) {
   return names
 }
 
-export default function ConfirmationPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined }
-}) {
-  const get = (k: string) => (Array.isArray(searchParams[k]) ? searchParams[k]?.[0] : searchParams[k])
+function ConfirmationContent() {
+  const searchParams = useSearchParams()
+
+  const get = (k: string) => searchParams.get(k)
   const pt = get("pt") || "Pickup"
   const dt = get("dt") || "Drop-off"
   const d = Number(get("d") || "0")
   const fare = Number(get("fare") || "0")
-  const c = Math.min(3, Math.max(1, Number(get("c") || "1"))) // (no input for # of coolies on booking page anymore). If not provided, defaults to 1.
+  const c = Math.min(3, Math.max(1, Number(get("c") || "1")))
   const px = Number(get("px") || "0")
   const py = Number(get("py") || "0")
   const dx = Number(get("dx") || "0")
   const dy = Number(get("dy") || "0")
+  const bookingId = get("bookingId")
 
   const names = pickNames(c)
-  // Mark the first as lead coolie
   const assignments = names.map((name, idx) => {
-    const dist = (Math.random() * 2 + 0.2).toFixed(1) // 0.2 - 2.2 km
-    const eta = Math.max(3, Math.round(Number.parseFloat(dist) * 10)) // approx minutes
+    const dist = (Math.random() * 2 + 0.2).toFixed(1)
+    const eta = Math.max(3, Math.round(Number.parseFloat(dist) * 10))
     const rating = (4.6 + Math.random() * 0.4).toFixed(1)
     return {
       name,
@@ -70,7 +73,6 @@ export default function ConfirmationPage({
 
   return (
     <main className="container mx-auto px-4 py-8">
-      {/* Persist current booking details for /tracking fallback when query params are lost */}
       <BookingStorage
         px={px}
         py={py}
@@ -81,12 +83,18 @@ export default function ConfirmationPage({
         name={assignments[0]?.name}
         eta={String(assignments[0]?.eta ?? "")}
       />
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Booking Confirmed</h1>
           <p className="text-muted-foreground mt-1">
-            Your coolie team is being assigned. You’ll receive live updates shortly.
+            Your coolie team is being assigned. You'll receive live updates shortly.
           </p>
+          {bookingId && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Booking ID: <span className="font-mono font-medium">{bookingId}</span>
+            </p>
+          )}
         </div>
         <Badge className="bg-secondary text-secondary-foreground" variant="secondary">
           <Users className="h-4 w-4 mr-1" /> {c} {c > 1 ? "Coolies" : "Coolie"}
@@ -140,25 +148,41 @@ export default function ConfirmationPage({
                         </div>
                       </div>
                     </div>
-                    {i === 0 ? (
-                      <Badge className="bg-primary text-primary-foreground">Assigned</Badge>
-                    ) : (
-                      <Badge variant="outline">On standby</Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {i === 0 && (
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 bg-transparent">
+                            <Phone className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 bg-transparent">
+                            <MessageCircle className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {i === 0 ? (
+                        <Badge className="bg-primary text-primary-foreground">Assigned</Badge>
+                      ) : (
+                        <Badge variant="outline">On standby</Badge>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}
             </div>
 
             <div className="rounded-md bg-muted p-3 text-sm">
-              Note: Fare shown is an estimate. Final amount will be confirmed after luggage weight verification at
-              pickup.
+              <p className="font-medium mb-1">Important Notes:</p>
+              <ul className="text-muted-foreground space-y-1">
+                <li>• Fare shown is an estimate. Final amount confirmed after luggage verification.</li>
+                <li>• Your lead coolie will call you when they arrive at pickup location.</li>
+                <li>• Keep your phone accessible for coordination.</li>
+              </ul>
             </div>
           </div>
         </Card>
 
         <Card className="p-4 md:col-span-1">
-          <h3 className="font-medium">What’s next?</h3>
+          <h3 className="font-medium">What's next?</h3>
           <p className="text-sm text-muted-foreground mt-1">
             Your lead coolie will navigate to your pickup point. You can track live movement and ETA on the map.
           </p>
@@ -174,14 +198,43 @@ export default function ConfirmationPage({
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Button asChild variant="secondary">
-              <Link href="/book">Book another</Link>
+              <Link href="/book">Book Another</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/">Home</Link>
             </Button>
           </div>
+
+          <div className="mt-4 pt-4 border-t">
+            <h4 className="font-medium text-sm">Need Help?</h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              Contact our support team if you have any issues with your booking.
+            </p>
+            <Button variant="outline" size="sm" className="mt-2 w-full bg-transparent">
+              Contact Support
+            </Button>
+          </div>
         </Card>
       </div>
     </main>
+  )
+}
+
+export default function ConfirmationPage() {
+  return (
+    <ProtectedRoute>
+      <Suspense
+        fallback={
+          <div className="flex min-h-svh w-full items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-sm text-muted-foreground">Loading confirmation...</p>
+            </div>
+          </div>
+        }
+      >
+        <ConfirmationContent />
+      </Suspense>
+    </ProtectedRoute>
   )
 }

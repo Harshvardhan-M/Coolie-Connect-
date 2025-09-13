@@ -20,6 +20,8 @@ import {
   AlertDialogTitle,
   AlertDialogOverlay,
 } from "@/components/ui/alert-dialog"
+import { ProtectedRoute } from "@/components/protected-route"
+import { createClient } from "@/lib/supabase/client"
 
 type LatLng = { lat: number; lng: number }
 
@@ -39,8 +41,9 @@ function haversine(a: LatLng, b: LatLng) {
 
 const MapPicker = dynamic(() => import("@/components/map-picker"), { ssr: false })
 
-export default function BookPage() {
+function BookingContent() {
   const router = useRouter()
+  const supabase = createClient()
   const [pickup, setPickup] = useState<LatLng | null>(null)
   const [dropoff, setDropoff] = useState<LatLng | null>(null)
   const [pickupText, setPickupText] = useState("")
@@ -101,8 +104,33 @@ export default function BookPage() {
     setWarnOpen(true)
   }
 
-  function confirmAfterWarning() {
+  async function confirmAfterWarning() {
     if (!pickup || !dropoff) return
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const bookingData = {
+      user_id: user.id,
+      pickup_lat: pickup.lat,
+      pickup_lng: pickup.lng,
+      pickup_address: pickupText || "Selected on map",
+      dropoff_lat: dropoff.lat,
+      dropoff_lng: dropoff.lng,
+      dropoff_address: dropoffText || "Selected on map",
+      estimated_fare: Math.round(estimate),
+      status: "pending",
+    }
+
+    const { data: booking, error } = await supabase.from("bookings").insert(bookingData).select().single()
+
+    if (error) {
+      console.error("Error creating booking:", error)
+      return
+    }
+
     const params = new URLSearchParams({
       px: String(pickup.lat),
       py: String(pickup.lng),
@@ -116,16 +144,25 @@ export default function BookPage() {
       bags: String(bagCount),
       types: selectedBags.join(","),
       note: note || "",
+      bookingId: booking.id,
     })
     router.push(`/confirmation?${params.toString()}`)
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/")
+  }
+
   return (
     <main className="container mx-auto px-4 py-6">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <Link href="/" className="text-sm text-muted-foreground hover:underline">
           ← Home
         </Link>
+        <Button variant="outline" size="sm" onClick={handleLogout}>
+          Logout
+        </Button>
       </div>
 
       <h1 className="text-2xl font-semibold text-balance">Book a Coolie</h1>
@@ -351,5 +388,13 @@ export default function BookPage() {
         </AlertDialogContent>
       </AlertDialog>
     </main>
+  )
+}
+
+export default function BookPage() {
+  return (
+    <ProtectedRoute>
+      <BookingContent />
+    </ProtectedRoute>
   )
 }

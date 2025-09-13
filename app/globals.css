@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -162,12 +161,7 @@
   }
 }
 
-/* ensure Radix dialogs overlay above Leaflet controls and add pin styles */
-.leaflet-control-container {
-  z-index: 40;
-}
-
-/* simple CSS pin for DivIcon */
+/* simple CSS pin for custom map */
 .pin-wrapper {
   position: relative;
 }
@@ -199,13 +193,4 @@
 }
 .pin-label {
   line-height: 1;
-}
-
-/* ensure leaflet panes never sit above dialog overlays */
-.leaflet-pane {
-  z-index: 20;
-}
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 30;
 }

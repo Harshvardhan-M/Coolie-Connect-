@@ -27,7 +27,7 @@ export default function HomePage() {
                   and confirm your request.
                 </p>
                 <Button asChild className="w-full">
-                  <Link href="/book">Start Booking</Link>
+                  <Link href="/book">Book a Coolie</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -43,7 +43,9 @@ export default function HomePage() {
                 </p>
                 <div className="flex gap-3">
                   <Button variant="outline">Learn More</Button>
-                  <Button>Get Started</Button>
+                  <Button asChild>
+                    <Link href="/auth/sign-up">Get Started</Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -64,7 +66,7 @@ export default function HomePage() {
             <li>
               <h3 className="font-medium text-gray-900">How is the fare calculated?</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Based on distance, number of items, and weight. You’ll see the estimate upfront.
+                Based on distance, number of items, and weight. You'll see the estimate upfront.
               </p>
             </li>
             <li>

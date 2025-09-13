@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
+import { UserNav } from "@/components/user-nav"
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
@@ -35,9 +36,7 @@ export function SiteHeader() {
           <Button asChild variant="ghost" className="text-gray-900">
             <a href="#download">Download App</a>
           </Button>
-          <Button asChild>
-            <Link href="/book">Book a Coolie</Link>
-          </Button>
+          <UserNav />
         </div>
 
         <button
@@ -68,9 +67,9 @@ export function SiteHeader() {
               <Button asChild variant="ghost" className="flex-1 text-gray-900">
                 <a href="#download">Download App</a>
               </Button>
-              <Button asChild className="flex-1">
-                <Link href="/book">Book</Link>
-              </Button>
+              <div className="flex-1">
+                <UserNav />
+              </div>
             </div>
           </div>
         </div>
