@@ -1,13 +1,10 @@
 "use client"
-
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 
 type LatLng = { lat: number; lng: number }
 
-// Simple map component using OpenStreetMap tiles
+// Dynamic import for Leaflet to avoid SSR issues
 function InteractiveMap({
   pickup,
   dropoff,
@@ -21,146 +18,196 @@ function InteractiveMap({
   onDropoffChange: (p: LatLng) => void
   mode: "pickup" | "dropoff"
 }) {
-  const [center, setCenter] = useState<LatLng>({ lat: 19.076, lng: 72.8777 }) // Mumbai Central
-  const [zoom, setZoom] = useState(12)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const leafletMapRef = useRef<any>(null)
+  const pickupMarkerRef = useRef<any>(null)
+  const dropoffMarkerRef = useRef<any>(null)
+  const routeLineRef = useRef<any>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  // Update center when pickup or dropoff is set
   useEffect(() => {
-    if (mode === "pickup" && pickup) {
-      setCenter(pickup)
-      setZoom(15)
-    } else if (mode === "dropoff" && dropoff) {
-      setCenter(dropoff)
-      setZoom(15)
+    const loadLeaflet = async () => {
+      if (typeof window === "undefined") return
+
+      // Load Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet.css"]')) {
+        const link = document.createElement("link")
+        link.rel = "stylesheet"
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        document.head.appendChild(link)
+      }
+
+      // Load Leaflet JS
+      if (!window.L) {
+        const script = document.createElement("script")
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        await new Promise((resolve) => {
+          script.onload = resolve
+          document.head.appendChild(script)
+        })
+      }
+
+      setIsLoaded(true)
     }
-  }, [pickup, dropoff, mode])
 
-  const handleMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
+    loadLeaflet()
+  }, [])
 
-    // Convert pixel coordinates to lat/lng (simplified calculation)
-    const mapWidth = rect.width
-    const mapHeight = rect.height
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || leafletMapRef.current) return
 
-    // Calculate lat/lng based on current center and zoom
-    const latRange = 360 / Math.pow(2, zoom)
-    const lngRange = 360 / Math.pow(2, zoom)
+    const L = (window as any).L
+    const map = L.map(mapRef.current).setView([19.076, 72.8777], 12)
 
-    const lat = center.lat + (0.5 - y / mapHeight) * latRange
-    const lng = center.lng + (x / mapWidth - 0.5) * lngRange
+    // Add OpenStreetMap tiles
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(map)
 
-    const newPoint = { lat, lng }
+    // Custom icons for pickup and dropoff
+    const pickupIcon = L.divIcon({
+      html: `<div style="background: #ef4444; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+        <div style="background: white; width: 8px; height: 8px; border-radius: 50%;"></div>
+      </div>`,
+      className: "custom-marker",
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    })
 
-    if (mode === "pickup") {
-      onPickupChange(newPoint)
-    } else {
-      onDropoffChange(newPoint)
+    const dropoffIcon = L.divIcon({
+      html: `<div style="background: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+        <div style="background: white; width: 8px; height: 8px; border-radius: 50%;"></div>
+      </div>`,
+      className: "custom-marker",
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    })
+
+    // Handle map clicks
+    map.on("click", (e: any) => {
+      const { lat, lng } = e.latlng
+      const newPoint = { lat, lng }
+
+      if (mode === "pickup") {
+        onPickupChange(newPoint)
+      } else {
+        onDropoffChange(newPoint)
+      }
+    })
+
+    leafletMapRef.current = map
+
+    return () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove()
+        leafletMapRef.current = null
+      }
     }
+  }, [isLoaded, mode, onPickupChange, onDropoffChange])
+
+  // Update pickup marker
+  useEffect(() => {
+    if (!leafletMapRef.current || !isLoaded) return
+    const L = (window as any).L
+
+    if (pickupMarkerRef.current) {
+      leafletMapRef.current.removeLayer(pickupMarkerRef.current)
+    }
+
+    if (pickup) {
+      const pickupIcon = L.divIcon({
+        html: `<div style="background: #ef4444; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+          <div style="background: white; width: 8px; height: 8px; border-radius: 50%;"></div>
+        </div>`,
+        className: "custom-marker",
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })
+
+      pickupMarkerRef.current = L.marker([pickup.lat, pickup.lng], { icon: pickupIcon })
+        .addTo(leafletMapRef.current)
+        .bindPopup("Pickup Location")
+
+      leafletMapRef.current.setView([pickup.lat, pickup.lng], 15)
+    }
+  }, [pickup, isLoaded])
+
+  // Update dropoff marker
+  useEffect(() => {
+    if (!leafletMapRef.current || !isLoaded) return
+    const L = (window as any).L
+
+    if (dropoffMarkerRef.current) {
+      leafletMapRef.current.removeLayer(dropoffMarkerRef.current)
+    }
+
+    if (dropoff) {
+      const dropoffIcon = L.divIcon({
+        html: `<div style="background: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+          <div style="background: white; width: 8px; height: 8px; border-radius: 50%;"></div>
+        </div>`,
+        className: "custom-marker",
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })
+
+      dropoffMarkerRef.current = L.marker([dropoff.lat, dropoff.lng], { icon: dropoffIcon })
+        .addTo(leafletMapRef.current)
+        .bindPopup("Drop-off Location")
+    }
+  }, [dropoff, isLoaded])
+
+  // Update route line
+  useEffect(() => {
+    if (!leafletMapRef.current || !isLoaded) return
+    const L = (window as any).L
+
+    if (routeLineRef.current) {
+      leafletMapRef.current.removeLayer(routeLineRef.current)
+    }
+
+    if (pickup && dropoff) {
+      routeLineRef.current = L.polyline(
+        [
+          [pickup.lat, pickup.lng],
+          [dropoff.lat, dropoff.lng],
+        ],
+        {
+          color: "#3b82f6",
+          weight: 3,
+          opacity: 0.7,
+          dashArray: "10, 10",
+        },
+      ).addTo(leafletMapRef.current)
+
+      // Fit map to show both points
+      const group = L.featureGroup([pickupMarkerRef.current, dropoffMarkerRef.current])
+      leafletMapRef.current.fitBounds(group.getBounds().pad(0.1))
+    }
+  }, [pickup, dropoff, isLoaded])
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-100 rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading map...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="relative h-full w-full bg-gray-100 rounded-lg overflow-hidden">
-      {/* Map background with grid pattern */}
-      <div
-        className="absolute inset-0 cursor-crosshair"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
-          `,
-          backgroundSize: "20px 20px",
-          backgroundColor: "#f0f9ff",
-        }}
-        onClick={handleMapClick}
-      >
-        {/* Pickup marker */}
-        {pickup && (
-          <div
-            className="absolute w-6 h-6 -ml-3 -mt-6 z-10"
-            style={{
-              left: `${50 + ((pickup.lng - center.lng) / (360 / Math.pow(2, zoom))) * 100}%`,
-              top: `${50 - ((pickup.lat - center.lat) / (360 / Math.pow(2, zoom))) * 100}%`,
-            }}
-          >
-            <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
-            <div className="absolute top-7 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-              Pickup
-            </div>
-          </div>
-        )}
+    <div className="relative h-full w-full">
+      <div ref={mapRef} className="h-full w-full rounded-lg" />
 
-        {/* Dropoff marker */}
-        {dropoff && (
-          <div
-            className="absolute w-6 h-6 -ml-3 -mt-6 z-10"
-            style={{
-              left: `${50 + ((dropoff.lng - center.lng) / (360 / Math.pow(2, zoom))) * 100}%`,
-              top: `${50 - ((dropoff.lat - center.lat) / (360 / Math.pow(2, zoom))) * 100}%`,
-            }}
-          >
-            <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
-            <div className="absolute top-7 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-              Drop-off
-            </div>
-          </div>
-        )}
-
-        {/* Route line */}
-        {pickup && dropoff && (
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            <line
-              x1={`${50 + ((pickup.lng - center.lng) / (360 / Math.pow(2, zoom))) * 100}%`}
-              y1={`${50 - ((pickup.lat - center.lat) / (360 / Math.pow(2, zoom))) * 100}%`}
-              x2={`${50 + ((dropoff.lng - center.lng) / (360 / Math.pow(2, zoom))) * 100}%`}
-              y2={`${50 - ((dropoff.lat - center.lat) / (360 / Math.pow(2, zoom))) * 100}%`}
-              stroke="#3b82f6"
-              strokeWidth="3"
-              strokeDasharray="5,5"
-              opacity="0.7"
-            />
-          </svg>
-        )}
-
-        {/* Center crosshair */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-          <div className="w-4 h-4 border-2 border-gray-400 rounded-full bg-white/80"></div>
-        </div>
-      </div>
-
-      {/* Map controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="w-8 h-8 p-0"
-          onClick={() => setZoom(Math.min(18, zoom + 1))}
-        >
-          +
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="w-8 h-8 p-0"
-          onClick={() => setZoom(Math.max(8, zoom - 1))}
-        >
-          -
-        </Button>
-      </div>
-
-      {/* Instructions */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 text-sm">
+      {/* Instructions overlay */}
+      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 text-sm shadow-lg">
         <p className="font-medium text-gray-900">
           {mode === "pickup" ? "Click to set pickup location" : "Click to set drop-off location"}
         </p>
-        <p className="text-gray-600 text-xs mt-1">Use zoom controls to get precise location</p>
+        <p className="text-gray-600 text-xs mt-1">Zoom and pan to find the exact location</p>
       </div>
     </div>
   )
@@ -191,7 +238,7 @@ export default function MapPicker({
   return (
     <div className="relative h-full w-full">
       {/* Mode selector */}
-      <div className="absolute top-4 left-4 z-20 flex gap-2">
+      <div className="absolute top-4 left-4 z-[1000] flex gap-2">
         <button
           type="button"
           onClick={() => setMode("pickup")}
@@ -213,7 +260,7 @@ export default function MapPicker({
       </div>
 
       {/* Quick locations */}
-      <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-sm rounded-lg p-3">
+      <div className="absolute top-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
         <h3 className="font-medium text-sm mb-2">Quick Locations</h3>
         <div className="grid grid-cols-1 gap-1">
           <Button
@@ -257,7 +304,7 @@ export default function MapPicker({
 
       {/* Location display */}
       {(pickup || dropoff) && (
-        <div className="absolute bottom-4 right-4 z-20 bg-white/90 backdrop-blur-sm rounded-lg p-3 space-y-2">
+        <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg p-3 space-y-2 shadow-lg">
           {pickup && (
             <div className="flex items-center gap-2 text-sm">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>

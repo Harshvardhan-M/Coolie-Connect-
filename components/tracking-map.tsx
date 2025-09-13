@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useRef, useState } from "react"
 
 type LatLng = { lat: number; lng: number }
 
@@ -15,146 +15,170 @@ export default function TrackingMap({
   dropoff?: LatLng | null
   currentPos: LatLng
 }) {
-  // Calculate bounds to fit all points
-  const bounds = useMemo(() => {
-    const allPoints = [pickup, currentPos, ...(dropoff ? [dropoff] : [])]
-    const lats = allPoints.map((p) => p.lat)
-    const lngs = allPoints.map((p) => p.lng)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const leafletMapRef = useRef<any>(null)
+  const pickupMarkerRef = useRef<any>(null)
+  const dropoffMarkerRef = useRef<any>(null)
+  const coolieMarkerRef = useRef<any>(null)
+  const routeLineRef = useRef<any>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-    const minLat = Math.min(...lats)
-    const maxLat = Math.max(...lats)
-    const minLng = Math.min(...lngs)
-    const maxLng = Math.max(...lngs)
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      if (typeof window === "undefined") return
 
-    // Add padding
-    const latPadding = (maxLat - minLat) * 0.3 || 0.01
-    const lngPadding = (maxLng - minLng) * 0.3 || 0.01
+      // Load Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet.css"]')) {
+        const link = document.createElement("link")
+        link.rel = "stylesheet"
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        document.head.appendChild(link)
+      }
 
-    return {
-      minLat: minLat - latPadding,
-      maxLat: maxLat + latPadding,
-      minLng: minLng - lngPadding,
-      maxLng: maxLng + lngPadding,
+      // Load Leaflet JS
+      if (!window.L) {
+        const script = document.createElement("script")
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        await new Promise((resolve) => {
+          script.onload = resolve
+          document.head.appendChild(script)
+        })
+      }
+
+      setIsLoaded(true)
     }
-  }, [pickup, dropoff, currentPos])
 
-  const toPixel = (lat: number, lng: number) => {
-    const x = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100
-    const y = ((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat)) * 100
-    return { x, y }
-  }
+    loadLeaflet()
+  }, [])
 
-  const pickupPixel = toPixel(pickup.lat, pickup.lng)
-  const currentPixel = toPixel(currentPos.lat, currentPos.lng)
-  const dropoffPixel = dropoff ? toPixel(dropoff.lat, dropoff.lng) : null
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || leafletMapRef.current) return
 
-  return (
-    <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden">
-      {/* Map background with grid pattern */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
-          `,
-          backgroundSize: "20px 20px",
-          backgroundColor: "#f0f9ff",
-        }}
-      >
-        {/* Route lines */}
-        <svg className="absolute inset-0 w-full h-full">
-          {/* Line from coolie to pickup */}
-          <line
-            x1={`${currentPixel.x}%`}
-            y1={`${currentPixel.y}%`}
-            x2={`${pickupPixel.x}%`}
-            y2={`${pickupPixel.y}%`}
-            stroke="#10b981"
-            strokeWidth="3"
-            strokeDasharray="8,4"
-            className="animate-pulse"
-          />
+    const L = (window as any).L
+    const map = L.map(mapRef.current).setView(center, 13)
 
-          {/* Line from pickup to dropoff (if exists) */}
-          {dropoffPixel && (
-            <line
-              x1={`${pickupPixel.x}%`}
-              y1={`${pickupPixel.y}%`}
-              x2={`${dropoffPixel.x}%`}
-              y2={`${dropoffPixel.y}%`}
-              stroke="#3b82f6"
-              strokeWidth="2"
-              strokeDasharray="5,5"
-              opacity="0.6"
-            />
-          )}
-        </svg>
+    // Add OpenStreetMap tiles
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(map)
 
-        {/* Pickup marker */}
-        <div
-          className="absolute w-8 h-8 -ml-4 -mt-8 z-10"
-          style={{
-            left: `${pickupPixel.x}%`,
-            top: `${pickupPixel.y}%`,
-          }}
-        >
-          <div className="w-8 h-8 bg-red-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-            <div className="w-3 h-3 bg-white rounded-full"></div>
-          </div>
-          <div className="absolute top-9 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-medium">
-            Pickup
-          </div>
-        </div>
+    leafletMapRef.current = map
 
-        {/* Dropoff marker */}
-        {dropoffPixel && (
-          <div
-            className="absolute w-8 h-8 -ml-4 -mt-8 z-10"
-            style={{
-              left: `${dropoffPixel.x}%`,
-              top: `${dropoffPixel.y}%`,
-            }}
-          >
-            <div className="w-8 h-8 bg-blue-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-            </div>
-            <div className="absolute top-9 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-medium">
-              Drop-off
-            </div>
-          </div>
-        )}
+    return () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove()
+        leafletMapRef.current = null
+      }
+    }
+  }, [isLoaded, center])
 
-        {/* Coolie marker with animation */}
-        <div
-          className="absolute w-12 h-12 -ml-6 -mt-12 z-20 transition-all duration-1000 ease-linear"
-          style={{
-            left: `${currentPixel.x}%`,
-            top: `${currentPixel.y}%`,
-          }}
-        >
-          {/* Pulsing background */}
-          <div className="absolute inset-0 w-12 h-12 bg-green-500 rounded-full opacity-20 animate-ping"></div>
+  // Update markers and routes
+  useEffect(() => {
+    if (!leafletMapRef.current || !isLoaded) return
+    const L = (window as any).L
 
-          {/* Main marker */}
-          <div className="relative w-12 h-12 bg-green-500 rounded-full border-4 border-white shadow-xl flex items-center justify-center">
-            <div className="w-4 h-4 bg-white rounded-full"></div>
-          </div>
+    // Clear existing markers
+    if (pickupMarkerRef.current) leafletMapRef.current.removeLayer(pickupMarkerRef.current)
+    if (dropoffMarkerRef.current) leafletMapRef.current.removeLayer(dropoffMarkerRef.current)
+    if (coolieMarkerRef.current) leafletMapRef.current.removeLayer(coolieMarkerRef.current)
+    if (routeLineRef.current) leafletMapRef.current.removeLayer(routeLineRef.current)
 
-          {/* Label */}
-          <div className="absolute top-14 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs px-3 py-1 rounded font-medium whitespace-nowrap">
-            Your Coolie
-          </div>
+    // Pickup marker
+    const pickupIcon = L.divIcon({
+      html: `<div style="background: #ef4444; width: 32px; height: 32px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+        <div style="background: white; width: 12px; height: 12px; border-radius: 50%;"></div>
+      </div>`,
+      className: "custom-marker",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    })
 
-          {/* Direction indicator (small arrow pointing toward pickup) */}
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-            <div className="w-0 h-0 border-l-2 border-r-2 border-b-3 border-transparent border-b-green-600"></div>
-          </div>
+    pickupMarkerRef.current = L.marker([pickup.lat, pickup.lng], { icon: pickupIcon })
+      .addTo(leafletMapRef.current)
+      .bindPopup("Pickup Location")
+
+    // Dropoff marker (if exists)
+    if (dropoff) {
+      const dropoffIcon = L.divIcon({
+        html: `<div style="background: #3b82f6; width: 32px; height: 32px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+          <div style="background: white; width: 12px; height: 12px; border-radius: 50%;"></div>
+        </div>`,
+        className: "custom-marker",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      })
+
+      dropoffMarkerRef.current = L.marker([dropoff.lat, dropoff.lng], { icon: dropoffIcon })
+        .addTo(leafletMapRef.current)
+        .bindPopup("Drop-off Location")
+    }
+
+    // Coolie marker with pulsing animation
+    const coolieIcon = L.divIcon({
+      html: `<div style="position: relative;">
+        <div style="position: absolute; background: #10b981; width: 48px; height: 48px; border-radius: 50%; opacity: 0.3; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="background: #10b981; width: 48px; height: 48px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; position: relative; z-index: 10;">
+          <div style="background: white; width: 16px; height: 16px; border-radius: 50%;"></div>
         </div>
       </div>
+      <style>
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+      </style>`,
+      className: "custom-marker",
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+    })
+
+    coolieMarkerRef.current = L.marker([currentPos.lat, currentPos.lng], { icon: coolieIcon })
+      .addTo(leafletMapRef.current)
+      .bindPopup("Your Coolie - Live Location")
+
+    // Route lines
+    const routePoints = []
+    routePoints.push([currentPos.lat, currentPos.lng])
+    routePoints.push([pickup.lat, pickup.lng])
+    if (dropoff) {
+      routePoints.push([dropoff.lat, dropoff.lng])
+    }
+
+    routeLineRef.current = L.polyline(routePoints, {
+      color: "#10b981",
+      weight: 4,
+      opacity: 0.8,
+      dashArray: "10, 5",
+    }).addTo(leafletMapRef.current)
+
+    // Fit map to show all points
+    const allMarkers = [pickupMarkerRef.current, coolieMarkerRef.current]
+    if (dropoffMarkerRef.current) allMarkers.push(dropoffMarkerRef.current)
+
+    const group = L.featureGroup(allMarkers)
+    leafletMapRef.current.fitBounds(group.getBounds().pad(0.1))
+  }, [pickup, dropoff, currentPos, isLoaded])
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-100 rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading tracking map...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="h-full w-full rounded-lg" />
 
       {/* Status overlay */}
-      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
         <div className="flex items-center gap-2 text-sm font-medium">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <span>Live Tracking</span>
@@ -162,7 +186,7 @@ export default function TrackingMap({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
         <div className="text-xs space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-500 rounded-full border border-white"></div>
@@ -172,7 +196,7 @@ export default function TrackingMap({
             <div className="w-4 h-4 bg-red-500 rounded-full border border-white"></div>
             <span>Pickup Location</span>
           </div>
-          {dropoffPixel && (
+          {dropoff && (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-500 rounded-full border border-white"></div>
               <span>Drop-off Location</span>
@@ -182,7 +206,7 @@ export default function TrackingMap({
       </div>
 
       {/* Distance indicator */}
-      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
         <div className="text-xs text-center">
           <div className="font-medium text-green-600">En Route</div>
           <div className="text-gray-600 mt-1">Moving to pickup</div>
