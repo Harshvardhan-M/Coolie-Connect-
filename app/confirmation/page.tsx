@@ -188,7 +188,7 @@ function ConfirmationContent() {
           </p>
           <Button asChild className="mt-4 w-full">
             <Link
-              href={`/tracking?px=${px}&py=${py}&dx=${dx}&dy=${dy}&name=${encodeURIComponent(
+              href={`/tracking?px=${px}&py=${py}&dx=${dx}&dy=${dy}&pt=${encodeURIComponent(pt)}&dt=${encodeURIComponent(dt)}&name=${encodeURIComponent(
                 assignments[0].name,
               )}&eta=${assignments[0].eta}`}
             >
