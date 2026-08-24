@@ -25,14 +25,23 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      })
       if (error) {
-        setError("Invalid email or password")
+        if (error.code === "email_not_confirmed" || error.message.toLowerCase().includes("email not confirmed")) {
+          setError("Please confirm your email address before logging in.")
+        } else if (error.code === "unexpected_failure" || error.message.toLowerCase().includes("database error")) {
+          setError("The authentication service is temporarily unavailable. Please try again shortly.")
+        } else {
+          setError("Invalid email or password")
+        }
         return
       }
       router.push("/book")
     } catch {
-      setError("Unable to log in right now. Please try again.")
+      setError("The authentication service is temporarily unavailable. Please try again shortly.")
     } finally {
       setIsLoading(false)
     }
