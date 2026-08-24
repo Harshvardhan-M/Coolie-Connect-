@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { MailCheck } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,6 +40,12 @@ export default function SignUpSuccessPage() {
             <CardDescription>Check your inbox before signing in</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+              <MailCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+              <p>
+                Confirm your sign-in by opening the verification email we sent you. You&apos;ll be able to log in after confirming.
+              </p>
+            </div>
             <p className="text-sm text-muted-foreground">
               We sent a confirmation link to {email ? <strong>{email}</strong> : "your email address"}. You must open it before logging in.
             </p>
