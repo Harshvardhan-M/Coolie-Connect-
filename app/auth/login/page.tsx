@@ -25,17 +25,14 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/book`,
-        },
-      })
-      if (error) throw error
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError("Invalid email or password")
+        return
+      }
       router.push("/book")
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+    } catch {
+      setError("Unable to log in right now. Please try again.")
     } finally {
       setIsLoading(false)
     }
