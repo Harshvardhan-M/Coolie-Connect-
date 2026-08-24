@@ -16,9 +16,9 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabase = createClient()
     const getUser = async () => {
       const {
         data: { user },
@@ -45,7 +45,7 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
     })
 
     return () => subscription.unsubscribe()
-  }, [router, supabase.auth])
+  }, [router])
 
   if (loading) {
     return (
