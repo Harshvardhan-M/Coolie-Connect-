@@ -181,7 +181,19 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
 
   const [isMounted, setIsMounted] = useState(false)
   const [contactMode, setContactMode] = useState<"call" | "message" | "support" | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isCancelled, setIsCancelled] = useState(false)
   const fakeNumber = "000-000-0000"
+
+  const cancelRide = () => {
+    try {
+      localStorage.removeItem("coolieconnect:lastBooking")
+    } catch {
+      // Ignore storage failures; the current ride is still cancelled in the UI.
+    }
+    setShowCancelConfirm(false)
+    setIsCancelled(true)
+  }
 
   useEffect(() => {
     setIsMounted(true)
@@ -190,8 +202,21 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
   const mins = Math.floor(etaSec / 60)
   const secs = etaSec % 60
 
+  if (isCancelled) {
+    return (
+      <main className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-6">
+        <Card className="w-full max-w-md p-6 text-center">
+          <XCircle className="mx-auto size-10 text-destructive" aria-hidden="true" />
+          <h1 className="mt-4 text-xl font-semibold">Ride cancelled</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Your coolie booking has been cancelled successfully.</p>
+          <Button className="mt-6 w-full" onClick={() => router.push("/")}>Back to Home</Button>
+        </Card>
+      </main>
+    )
+  }
+
   return (
-    <main className="container mx-auto px-4 py-6">
+    <main className="container relative z-0 mx-auto px-4 py-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Live Tracking</h1>
@@ -267,13 +292,13 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="secondary" className="w-full" onClick={() => setContactMode("call")}>
+            <Button type="button" variant="secondary" className="w-full" onClick={(event) => { event.stopPropagation(); setContactMode("call") }}>
               <Phone className="h-4 w-4 mr-2" /> Call
             </Button>
-            <Button variant="outline" className="w-full bg-transparent" onClick={() => setContactMode("message")}>
+            <Button type="button" variant="outline" className="w-full bg-transparent" onClick={(event) => { event.stopPropagation(); setContactMode("message") }}>
               <MessageCircle className="h-4 w-4 mr-2" /> Message
             </Button>
-            <Button variant="outline" className="w-full bg-transparent" onClick={() => router.push("/")}>
+            <Button type="button" variant="outline" className="w-full bg-transparent" onClick={(event) => { event.stopPropagation(); setShowCancelConfirm(true) }}>
               <XCircle className="h-4 w-4 mr-2" /> Cancel
             </Button>
           </div>
@@ -300,8 +325,21 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
         </Card>
       </div>
 
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-foreground/40 p-4" onClick={() => setShowCancelConfirm(false)} role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+          <Card className="w-full max-w-sm p-5" onClick={(event) => event.stopPropagation()}>
+            <h2 id="cancel-title" className="text-lg font-semibold">Cancel this ride?</h2>
+            <p className="mt-2 text-sm text-muted-foreground">This will end the current booking and remove it from tracking.</p>
+            <div className="mt-5 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCancelConfirm(false)}>Keep ride</Button>
+              <Button variant="destructive" className="flex-1" onClick={cancelRide}>Cancel ride</Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {contactMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-foreground/40 p-4" onClick={() => setContactMode(null)} role="dialog" aria-modal="true" aria-labelledby="contact-title">
           <Card className="w-full max-w-md p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
