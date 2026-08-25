@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Clock, MapPin, Phone, XCircle } from "lucide-react"
+import { Clock, MapPin, MessageCircle, Phone, XCircle, Mail } from "lucide-react"
 import type { SavedBooking } from "@/components/booking-storage"
 import TrackingMap from "./tracking-map"
 
@@ -51,8 +51,12 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
   const dx = typeof searchParams?.dx === "string" ? searchParams.dx : undefined
   const dy = typeof searchParams?.dy === "string" ? searchParams.dy : undefined
 
-  const pickupLabel = typeof searchParams?.pt === "string" ? searchParams.pt : "Pickup Location"
-  const dropoffLabel = typeof searchParams?.dt === "string" ? searchParams.dt : "Drop-off Location"
+  const pickupLabelFromUrl = typeof searchParams?.pt === "string" ? searchParams.pt : null
+  const dropoffLabelFromUrl = typeof searchParams?.dt === "string" ? searchParams.dt : null
+  const [pickupLabelFromSaved, setPickupLabelFromSaved] = useState<string | null>(null)
+  const [dropoffLabelFromSaved, setDropoffLabelFromSaved] = useState<string | null>(null)
+  const pickupLabel = pickupLabelFromUrl || pickupLabelFromSaved || "Pickup Location"
+  const dropoffLabel = dropoffLabelFromUrl || dropoffLabelFromSaved || "Drop-off Location"
 
   // URL-provided name/eta (may be missing in production)
   const nameFromUrl = (typeof searchParams?.name === "string" && searchParams.name) || null
@@ -67,6 +71,8 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
         const parsed = JSON.parse(raw) as SavedBooking
         if (parsed && typeof parsed.px === "number" && typeof parsed.py === "number") {
           setSaved(parsed)
+          setPickupLabelFromSaved(parsed.pickupLabel || null)
+          setDropoffLabelFromSaved(parsed.dropLabel || null)
         }
       }
     } catch {
@@ -174,6 +180,8 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
   }, [startFrom, pickup, t])
 
   const [isMounted, setIsMounted] = useState(false)
+  const [contactMode, setContactMode] = useState<"call" | "message" | "support" | null>(null)
+  const fakeNumber = "000-000-0000"
 
   useEffect(() => {
     setIsMounted(true)
@@ -259,8 +267,11 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="secondary" className="w-full" onClick={() => alert("Calling coolie...")}>
+            <Button variant="secondary" className="w-full" onClick={() => setContactMode("call")}>
               <Phone className="h-4 w-4 mr-2" /> Call
+            </Button>
+            <Button variant="outline" className="w-full bg-transparent" onClick={() => setContactMode("message")}>
+              <MessageCircle className="h-4 w-4 mr-2" /> Message
             </Button>
             <Button variant="outline" className="w-full bg-transparent" onClick={() => router.push("/")}>
               <XCircle className="h-4 w-4 mr-2" /> Cancel
@@ -279,11 +290,47 @@ export default function TrackingClient({ searchParams }: { searchParams: SearchP
             </div>
           </div>
 
-          <Button variant="ghost" className="mt-2 w-full" onClick={() => router.push("/")}>
+          <Button variant="ghost" className="mt-2 w-full" onClick={() => setContactMode("support")}>
+            <Mail className="h-4 w-4 mr-2" /> Contact Support
+          </Button>
+
+          <Button variant="ghost" className="w-full" onClick={() => router.push("/")}>
             Back to Home
           </Button>
         </Card>
       </div>
+
+      {contactMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+          <Card className="w-full max-w-md p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="contact-title" className="text-lg font-semibold">
+                  {contactMode === "call" ? `Call ${name}` : contactMode === "message" ? `Message ${name}` : "Contact Support"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {contactMode === "support" ? "Send questions to the Coolie Connect support team." : "This is a demo contact channel."}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" aria-label="Close contact dialog" onClick={() => setContactMode(null)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+            {contactMode === "support" ? (
+              <a className="mt-5 block rounded-md bg-muted p-3 font-medium text-primary underline-offset-4 hover:underline" href="mailto:harshvardhanmagar77@gmail.com">
+                harshvardhanmagar77@gmail.com
+              </a>
+            ) : (
+              <div className="mt-5 rounded-md bg-muted p-3">
+                <p className="font-medium">{name}</p>
+                <p className="text-sm text-muted-foreground">{fakeNumber} (demo number)</p>
+                {contactMode === "message" && <p className="mt-4 text-sm">Hi {name}, I&apos;m checking in about my booking.</p>}
+              </div>
+            )}
+            <Button className="mt-5 w-full" onClick={() => setContactMode(null)}>Close</Button>
+          </Card>
+        </div>
+      )}
     </main>
   )
 }
